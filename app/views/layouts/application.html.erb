@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>RailsLintingCi</title>
+    <%= csrf_meta_tags %>
+    <%= javascript_pack_tag 'application' %>
+
+    <%= csp_meta_tag %>
+
+    <%= stylesheet_link_tag 'application', media: 'all', 'data-turbolinks-track': 'reload' %>
+    <%= javascript_pack_tag 'application', 'data-turbolinks-track': 'reload' %>
+  
+    <%= stylesheet_pack_tag 'application' %>
+  </head>
+
+  <body>
+    <div id="vue-app">
+      <app></app>
+      <%= yield %>
+    </div>
+  </body>
+</html>
