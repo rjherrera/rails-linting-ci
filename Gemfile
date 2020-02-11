@@ -57,6 +57,10 @@ group :development, :test do
   gem 'pry-rails'
   gem 'rspec-nc', require: false
   gem 'rspec-rails'
+  gem 'rubocop', '~> 0.79.0'
+  gem 'rubocop-rspec', '~> 1.38.0'
+  gem 'rubocop-rails', '~> 2.4.2'
+  gem 'rubocop-performance', '~> 1.5.2'
 end
 
 group :production, :development, :test do
