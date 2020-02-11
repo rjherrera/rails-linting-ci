@@ -64,21 +64,21 @@ jobs:
           shell: /bin/bash
           command: |
             files=$(git diff origin/master --name-only)
-            bundle exec rubocop $(echo $files) | ./bin/reviewdog -reporter=github-pr-review -f=rubocop
+            bundle exec rubocop $(echo $files) | ./bin/reviewdog -reporter=github-check -f=rubocop
 
       - run:
           name: Run eslint
           shell: /bin/bash
           command: |
             files=$(git diff origin/master --name-only)
-            yarn run eslint $(echo $files) | ./bin/reviewdog -reporter=github-pr-review -f=eslint
+            yarn run eslint $(echo $files) | ./bin/reviewdog -reporter=github-check -f=eslint
 
       - run:
           name: Run stylelint
           shell: /bin/bash
           command: |
             files=$(git diff origin/master --name-only "*.scss" "*.css" "*.less")
-            yarn run stylelint $(echo $files) | ./bin/reviewdog -reporter=github-pr-review -f=stylelint
+            yarn run stylelint $(echo $files) | ./bin/reviewdog -reporter=github-check -f=stylelint
 
 workflows:
   version: 2
