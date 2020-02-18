@@ -31,7 +31,12 @@ jobs:
       - restore_cache:
           keys:
           - linting-dependencies-bundle-{{ checksum "Gemfile.lock" }}
+          - linting-dependencies-bundle-
+
+      - restore_cache:
+          keys:
           - linting-dependencies-yarn-{{ checksum "yarn.lock" }}
+          - linting-dependencies-yarn-
 
       - run:
           name: Install bundle dependencies
@@ -60,25 +65,29 @@ jobs:
             curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh | sh -s -- -b ./bin
 
       - run:
+          name: Get files to lint
+          command: git diff origin/master --name-only > tmp/files_to_lint
+
+      - run:
           name: Run rubocop
           shell: /bin/bash
           command: |
-            files=$(git diff origin/master --name-only)
-            bundle exec rubocop $(echo $files) | ./bin/reviewdog -reporter=github-pr-review -f=rubocop
+            cat tmp/files_to_lint | grep -E '.+\.(rb)$' | xargs bundle exec rubocop --force-exclusion \
+            | ./bin/reviewdog -reporter=github-pr-review -f=rubocop
 
       - run:
           name: Run eslint
           shell: /bin/bash
           command: |
-            files=$(git diff origin/master --name-only)
-            yarn run eslint $(echo $files) | ./bin/reviewdog -reporter=github-pr-review -f=eslint
+            cat tmp/files_to_lint | grep -E '.+\.(js|jsx|vue)$' | xargs yarn run eslint \
+            | ./bin/reviewdog -reporter=github-pr-review -f=eslint
 
       - run:
           name: Run stylelint
           shell: /bin/bash
           command: |
-            files=$(git diff origin/master --name-only "*.scss" "*.css" "*.less")
-            yarn run stylelint $(echo $files) | ./bin/reviewdog -reporter=github-pr-review -f=stylelint
+            cat tmp/files_to_lint | grep -E '.+\.(scss|css|less)$' | xargs yarn run stylelint \
+            | ./bin/reviewdog -reporter=github-pr-review -f=stylelint
 
 workflows:
   version: 2
