@@ -31,7 +31,9 @@ jobs:
       - restore_cache:
           keys:
           - linting-dependencies-bundle-{{ checksum "Gemfile.lock" }}
+          - linting-dependencies-bundle-
           - linting-dependencies-yarn-{{ checksum "yarn.lock" }}
+          - linting-dependencies-yarn-
 
       - run:
           name: Install bundle dependencies
