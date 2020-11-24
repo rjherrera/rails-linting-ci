@@ -1,47 +1,47 @@
 version: 2
 
 references:
-  build_steps: &build_steps
-    - checkout
-
-    - restore_cache:
-        keys:
+  restore_bundle: &restore_bundle
+    restore_cache:
+      keys:
         - bundle-dependencies-{{ checksum "Gemfile.lock" }}
         - bundle-dependencies-
 
-    - restore_cache:
-        keys:
+  restore_yarn: &restore_yarn
+    restore_cache:
+      keys:
         - yarn-dependencies-{{ checksum "yarn.lock" }}
         - yarn-dependencies-
 
-    - run:
-        name: Install bundle dependencies
-        command: |
-          BUNDLER_VERSION=$(cat Gemfile.lock | tail -1 | tr -d " ")
-          gem install bundler:$BUNDLER_VERSION
-          bundle _$(echo $BUNDLER_VERSION)_ install
+  install_bundle_dependencies: &install_bundle_dependencies
+    run:
+      name: Install bundle dependencies
+      command: |
+        BUNDLER_VERSION=$(cat Gemfile.lock | tail -1 | tr -d " ")
+        gem install bundler:$BUNDLER_VERSION
+        bundle _$(echo $BUNDLER_VERSION)_ install
 
-    - save_cache:
-        key: bundle-dependencies-{{ checksum "Gemfile.lock" }}
-        paths:
-          - vendor/bundle
+  save_bundle_cache: &save_bundle_cache
+    save_cache:
+      key: bundle-dependencies-{{ checksum "Gemfile.lock" }}
+      paths:
+        - vendor/bundle
 
-    - run:
-        name: Install node and yarn
-        command: |
-          curl -sL https://deb.nodesource.com/setup_$(cat .node-version).x | sudo -E bash -
-          sudo apt-get install -y nodejs
-          curl -o- -L https://yarnpkg.com/install.sh | bash
-          sudo ln -s $HOME/.yarn/bin/yarn /usr/local/bin/yarn
+  install_yarn_dependencies: &install_yarn_dependencies
+    run:
+      name: Install node and yarn
+      command: |
+        curl -sL https://deb.nodesource.com/setup_$(cat .node-version).x | sudo -E bash -
+        sudo apt-get install -y nodejs
+        curl -o- -L https://yarnpkg.com/install.sh | bash
+        sudo ln -s $HOME/.yarn/bin/yarn /usr/local/bin/yarn
+        yarn install --frozen-lockfile
 
-    - run:
-        name: Install yarn dependencies
-        command: yarn install --frozen-lockfile
-
-    - save_cache:
-        key: yarn-dependencies-{{ checksum "yarn.lock" }}
-        paths:
-          - node_modules
+  save_yarn_cache: &save_yarn_cache
+    save_cache:
+      key: yarn-dependencies-{{ checksum "yarn.lock" }}
+      paths:
+        - node_modules
 
 jobs:
   test:
@@ -54,7 +54,14 @@ jobs:
       - image: postgres:11.3
 
     steps:
-      - *build_steps
+      - checkout
+      - *restore_bundle
+      - *restore_yarn
+      - *install_bundle_dependencies
+      - *save_bundle_cache
+      - *install_yarn_dependencies
+      - *save_yarn_cache
+
       - run:
           name: Wait for postgres
           command: dockerize -wait tcp://localhost:5432 -timeout 1m
@@ -81,7 +88,14 @@ jobs:
           BUNDLE_PATH: vendor/bundle
 
     steps:
-      - *build_steps
+      - checkout
+      - *restore_bundle
+      - *restore_yarn
+      - *install_bundle_dependencies
+      - *save_bundle_cache
+      - *install_yarn_dependencies
+      - *save_yarn_cache
+
       - run:
           name: Install reviewdog
           command: |
