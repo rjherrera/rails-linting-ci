@@ -1,66 +1,72 @@
-version: 2
+version: 2.1
 
-references:
-  restore_bundle: &restore_bundle
-    restore_cache:
-      keys:
-        - bundle-dependencies-{{ checksum "Gemfile.lock" }}
-        - bundle-dependencies-
+ruby-image: &ruby-image circleci/ruby:2.7
+bundle-env-vars: &bundle-env-vars
+  BUNDLE_JOBS: 4
+  BUNDLE_PATH: vendor/bundle
 
-  restore_yarn: &restore_yarn
-    restore_cache:
-      keys:
-        - yarn-dependencies-{{ checksum "yarn.lock" }}
-        - yarn-dependencies-
+executors:
+  test-executor:
+    docker:
+      - image: *ruby-image
+        environment:
+          <<: *bundle-env-vars
+          RAILS_ENV: test
+      - image: postgres:11.3
 
-  install_bundle_dependencies: &install_bundle_dependencies
-    run:
-      name: Install bundle dependencies
-      command: |
-        BUNDLER_VERSION=$(cat Gemfile.lock | tail -1 | tr -d " ")
-        gem install bundler:$BUNDLER_VERSION
-        bundle _$(echo $BUNDLER_VERSION)_ install
+  lint-executor:
+    docker:
+      - image: *ruby-image
+        environment:
+          <<: *bundle-env-vars
 
-  save_bundle_cache: &save_bundle_cache
-    save_cache:
-      key: bundle-dependencies-{{ checksum "Gemfile.lock" }}
-      paths:
-        - vendor/bundle
+commands:
+  setup:
+    description: checkout, retrieve caches, install ruby, node and dependencies
+    steps:
+      - checkout
 
-  install_yarn_dependencies: &install_yarn_dependencies
-    run:
-      name: Install node and yarn
-      command: |
-        curl -sL https://deb.nodesource.com/setup_$(cat .node-version).x | sudo -E bash -
-        sudo apt-get install -y nodejs
-        curl -o- -L https://yarnpkg.com/install.sh | bash
-        sudo ln -s $HOME/.yarn/bin/yarn /usr/local/bin/yarn
-        yarn install --frozen-lockfile
+      - restore_cache:
+          keys:
+          - bundle-dependencies-{{ checksum "Gemfile.lock" }}
+          - bundle-dependencies-
 
-  save_yarn_cache: &save_yarn_cache
-    save_cache:
-      key: yarn-dependencies-{{ checksum "yarn.lock" }}
-      paths:
-        - node_modules
+      - restore_cache:
+          keys:
+          - yarn-dependencies-{{ checksum "yarn.lock" }}
+          - yarn-dependencies-
+
+      - run:
+          name: Install bundle dependencies
+          command: |
+            BUNDLER_VERSION=$(cat Gemfile.lock | tail -1 | tr -d " ")
+            gem install bundler:$BUNDLER_VERSION
+            bundle _$(echo $BUNDLER_VERSION)_ install
+
+      - save_cache:
+          key: bundle-dependencies-{{ checksum "Gemfile.lock" }}
+          paths:
+            - vendor/bundle
+
+      - run:
+          name: Install yarn dependencies
+          command: |
+            curl -sL https://deb.nodesource.com/setup_$(cat .node-version).x | sudo -E bash -
+            sudo apt-get install -y nodejs
+            curl -o- -sL https://yarnpkg.com/install.sh | bash
+            sudo ln -s $HOME/.yarn/bin/yarn /usr/local/bin/yarn
+            yarn install --frozen-lockfile
+
+      - save_cache:
+          key: yarn-dependencies-{{ checksum "yarn.lock" }}
+          paths:
+            - node_modules
 
 jobs:
   test:
-    docker:
-      - image: circleci/ruby:2.7
-        environment:
-          RAILS_ENV: test
-          BUNDLE_JOBS: 4
-          BUNDLE_PATH: vendor/bundle
-      - image: postgres:11.3
-
+    executor: test-executor
     steps:
-      - checkout
-      - *restore_bundle
-      - *restore_yarn
-      - *install_bundle_dependencies
-      - *save_bundle_cache
-      - *install_yarn_dependencies
-      - *save_yarn_cache
+      - setup
 
       - run:
           name: Wait for postgres
@@ -81,20 +87,9 @@ jobs:
           path: test_results
 
   lint:
-    docker:
-      - image: circleci/ruby:2.7
-        environment:
-          BUNDLE_JOBS: 4
-          BUNDLE_PATH: vendor/bundle
-
+    executor: lint-executor
     steps:
-      - checkout
-      - *restore_bundle
-      - *restore_yarn
-      - *install_bundle_dependencies
-      - *save_bundle_cache
-      - *install_yarn_dependencies
-      - *save_yarn_cache
+      - setup
 
       - run:
           name: Install reviewdog
