@@ -1,30 +1,27 @@
-version: 2
-jobs:
-  test:
-    working_directory: ~/app
+version: 2.1
 
+ruby-image: &ruby-image circleci/ruby:2.7
+postgres-image: &postgres-image postgres:11.3
+env-vars: &env-vars
+  BUNDLE_JOBS: 4
+  BUNDLE_PATH: vendor/bundle
+  RAILS_ENV: test
+
+executors:
+  test-executor:
     docker:
-    - image: platanus/compose:1.22.0
+      - image: *ruby-image
+        environment: *env-vars
+      - image: *postgres-image
 
-    steps:
-    - checkout
-    - setup_remote_docker
-
-    - run: docker info
-    - run: docker-compose -f docker-compose.ci.yml pull
-    - run: docker-compose -f docker-compose.ci.yml build test
-    - run: bin/cibuild services
-    - run: bin/cibuild deps
-    - run: bin/cibuild db
-    - run: bin/cibuild tests
-
-  lint:
+  lint-executor:
     docker:
-      - image: circleci/ruby:2.7-node
-        environment:
-          BUNDLE_JOBS: 4
-          BUNDLE_RETRY: 3
-          BUNDLE_PATH: vendor/bundle
+      - image: *ruby-image
+        environment: *env-vars
+
+commands:
+  setup:
+    description: checkout, retrieve caches, install ruby, node and dependencies
     steps:
       - checkout
 
@@ -52,12 +49,46 @@ jobs:
 
       - run:
           name: Install yarn dependencies
-          command: yarn install --frozen-lockfile
+          command: |
+            curl -sL https://deb.nodesource.com/setup_$(cat .node-version).x | sudo -E bash -
+            sudo apt-get install -y nodejs
+            curl -o- -sL https://yarnpkg.com/install.sh | bash
+            sudo ln -s $HOME/.yarn/bin/yarn /usr/local/bin/yarn
+            yarn install --frozen-lockfile
 
       - save_cache:
           key: yarn-dependencies-{{ checksum "yarn.lock" }}
           paths:
             - node_modules
+
+jobs:
+  test:
+    executor: test-executor
+    steps:
+      - setup
+
+      - run:
+          name: Wait for postgres service
+          command: dockerize -wait tcp://localhost:5432 -timeout 1m
+
+      - run:
+          name: Setup database
+          command: bundle exec rails db:create db:schema:load
+
+      - run:
+          name: Run rspec
+          command: |
+            RSPEC_JUNIT_ARGS="-r rspec_junit_formatter -f RspecJunitFormatter -o test_results/rspec.xml"
+            RSPEC_FORMAT_ARGS="-f progress --no-color -p 10"
+            bundle exec rspec spec $RSPEC_FORMAT_ARGS $RSPEC_JUNIT_ARGS
+
+      - store_test_results:
+          path: test_results
+
+  lint:
+    executor: lint-executor
+    steps:
+      - setup
 
       - run:
           name: Install reviewdog
