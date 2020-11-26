@@ -1,24 +1,23 @@
 version: 2.1
 
 ruby-image: &ruby-image circleci/ruby:2.7
-bundle-env-vars: &bundle-env-vars
+postgres-image: &postgres-image postgres:11.3
+env-vars: &env-vars
   BUNDLE_JOBS: 4
   BUNDLE_PATH: vendor/bundle
+  RAILS_ENV: test
 
 executors:
   test-executor:
     docker:
       - image: *ruby-image
-        environment:
-          <<: *bundle-env-vars
-          RAILS_ENV: test
-      - image: postgres:11.3
+        environment: *env-vars
+      - image: *postgres-image
 
   lint-executor:
     docker:
       - image: *ruby-image
-        environment:
-          <<: *bundle-env-vars
+        environment: *env-vars
 
 commands:
   setup:
@@ -69,7 +68,7 @@ jobs:
       - setup
 
       - run:
-          name: Wait for postgres
+          name: Wait for postgres service
           command: dockerize -wait tcp://localhost:5432 -timeout 1m
 
       - run:
