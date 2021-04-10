@@ -8,7 +8,7 @@
 export default {
   data: function () {
     return {
-      message: "Hello Vue!"
+      message: 'This is a vue app with a obnoxious line length limit!',
     }
   }
 }
